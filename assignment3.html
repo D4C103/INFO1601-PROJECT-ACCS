@@ -1,10 +1,30 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <style></style>
   </head>
 <body>
+  <div class="container">
+    <div class="search-section">
+        <h1>TITLE</h1>
+        <input type="text" id="searchInput" placeholder="Search by title or author..." value="The Lord of the Rings">
+        <button onclick="newSearch()">Search</button>
+    </div>
+
+    <div id="gallery" class="gallery">
+        </div>
+
+    <div class="pagination">
+        <button id="prevBtn" onclick="changePage(-1)" disabled>Previous</button>
+        <span id="pageIndicator">Page 1</span>
+        <button id="nextBtn" onclick="changePage(1)">Next</button>
+   
+
+    </div>
+</div>
+
 </body>
 <script>
-  
+
 </script>
 </html>
