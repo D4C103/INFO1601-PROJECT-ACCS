@@ -25,6 +25,77 @@
 
 </body>
 <script>
+   let currentPage = 1;
+    let currentQuery = "";
+    const limit = 12; // Books per page
+
+    async function fetchBooks(query, page) {
+        const gallery = document.getElementById('gallery');
+        gallery.innerHTML = "<p>Searching for books...</p>";
+
+        // Open Library API uses 'page' parameter for pagination
+        const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`;
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            renderGallery(data.docs);
+            updatePaginationUI(data.numFound);
+        } catch (error) {
+            gallery.innerHTML = "<p>Error loading data. Please try again later.</p>";
+        }
+    }
+
+    function renderGallery(books) {
+        const gallery = document.getElementById('gallery');
+        gallery.innerHTML = "";
+
+        if (books.length === 0) {
+            gallery.innerHTML = "<p>No books found.</p>";
+            return;
+        }
+
+        books.forEach(book => {
+            const coverId = book.cover_i;
+            const coverUrl = coverId
+                ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
+                : 'https://via.placeholder.com/200x300?text=No+Cover';
+
+            const card = document.createElement('div');
+            card.className = 'book-card';
+            card.innerHTML = `
+                <img src="${coverUrl}" alt="${book.title}">
+                <h3>${book.title}</h3>
+                <small>${book.author_name ? book.author_name[0] : 'Unknown Author'}</small>
+            `;
+            gallery.appendChild(card);
+        });
+    }
+
+    function updatePaginationUI(totalResults) {
+        const totalPages = Math.ceil(totalResults / limit);
+        document.getElementById('pageIndicator').innerText = `Page ${currentPage} of ${totalPages || 1}`;
+        document.getElementById('prevBtn').disabled = (currentPage === 1);
+        document.getElementById('nextBtn').disabled = (currentPage >= totalPages);
+    }
+
+    function newSearch() {
+        currentQuery = document.getElementById('searchInput').value;
+        currentPage = 1;
+        if (currentQuery) fetchBooks(currentQuery, currentPage);
+    }
+
+    function changePage(step) {
+        currentPage += step;
+        fetchBooks(currentQuery, currentPage);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Initial Load
+    window.onload = () => {
+        currentQuery = document.getElementById('searchInput').value;
+        fetchBooks(currentQuery, currentPage);
+    };
 
 </script>
 </html>
