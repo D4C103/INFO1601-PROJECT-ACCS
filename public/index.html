@@ -45,7 +45,7 @@
 
         button:disabled { background-color: #ccc; }
 
-        /* Gallery Pattern */
+        
         .gallery {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -83,7 +83,7 @@
             overflow: hidden;
         }
 
-        /* Pagination Controls */
+       
         .pagination {
             display: flex;
             justify-content: center;
@@ -93,10 +93,57 @@
         }
 
         #pageIndicator { font-weight: bold; }
+          .modal-box {
+        background-color: #ffffff !important;
+        color: #333 !important;
+        padding: 40px;
+        border-radius: 15px;
+        width: 100%;
+        max-width: 400px;
+       
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1); 
+        border: 1px solid #f0f0f0;
+        text-align: center;
+    }
+
+    .modal-box h2 {
+        margin-bottom: 20px;
+        font-family: sans-serif;
+    }
+
+  
+    .modal-box input {
+        background: #f9f9f9;
+        border: 1px solid #ddd;
+        padding: 12px;
+        border-radius: 8px;
+        width: 100%;
+        margin-bottom: 15px;
+    }
     </style>
   </head>
 <body>
-  <nav></nav>
+  <nav>   <button id="nav-login-btn">Login</button></nav>
+  <div id="auth-modal-overlay" style="display: none;">
+    <div class="modal-box">
+        <div id="login-form-container">
+            <h2>Login</h2>
+            <input type="email" id="login-email" placeholder="Email">
+            <input type="password" id="login-password" placeholder="Password">
+            <button id="submit-login">Sign In</button>
+            <p>New? <span id="link-to-signup" style="color:blue; cursor:pointer">Sign Up</span></p>
+        </div>
+
+        <div id="signup-form-container" style="display: none;">
+            <h2>Sign Up</h2>
+            <input type="email" id="signup-email" placeholder="Email">
+            <input type="password" id="signup-password" placeholder="Password">
+            <button id="submit-signup">Register</button>
+            <p>Back to <span id="link-to-login" style="color:blue; cursor:pointer">Login</span></p>
+        </div>
+        <button id="close-modal-btn">Close</button>
+    </div>
+</div>
   <div class="container">
     <div class="search-section">
         <h1>LUME</h1>
@@ -119,10 +166,10 @@
 </body>
 <script type="module">
     import firebaseConfig  from "./firebaseConfig.js";
-    // 1. Core App Engine (Always needed first)
+    
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 
-   // 2. Authentication (Login/Register/Logout/Status)
+   
     import {
      getAuth,
      createUserWithEmailAndPassword,
@@ -131,7 +178,7 @@
      onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-    // 3. Firestore (Database/Favorites/Real-time Updates)
+   
     import {
       getFirestore,
       doc,
@@ -144,19 +191,19 @@
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app); // Used for login logic
-    const db = getFirestore(app); // Used for favorites logic
+    const auth = getAuth(app); 
+    const db = getFirestore(app); 
 
 
    let currentPage = 1;
     let currentQuery = "";
-    const limit = 12; // Books per page
+    const limit = 12; 
 
     async function fetchBooks(query, page) {
         const gallery = document.getElementById('gallery');
         gallery.innerHTML = "<p>Searching for books...</p>";
 
-        // Open Library API uses 'page' parameter for pagination
+      
         const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`;
 
         try {
@@ -207,20 +254,97 @@
         currentPage = 1;
         if (currentQuery) fetchBooks(currentQuery, currentPage);
     }
-    window.newSearch = newSearch; // Make it globally accessible
+    window.newSearch = newSearch; 
 
     function changePage(step) {
         currentPage += step;
         fetchBooks(currentQuery, currentPage);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    window.changePage = changePage; // Make it globally accessible
+    window.changePage = changePage; 
 
-    // Initial Load
+    
     window.onload = () => {
         currentQuery = document.getElementById('searchInput').value;
         fetchBooks(currentQuery, currentPage);
     };
+      const navBtn = document.getElementById('nav-login-btn');
+    const modal = document.getElementById('auth-modal-overlay');
+    const closeBtn = document.getElementById('close-modal-btn');
+    const toSignupLink = document.getElementById('link-to-signup');
+    const toLoginLink = document.getElementById('link-to-login');
+    
+    const loginView = document.getElementById('login-form-container');
+    const signupView = document.getElementById('signup-form-container');
+
+    
+    const openModal = () => {
+        modal.style.display = 'flex';
+        modal.style.position = 'fixed';
+        modal.style.inset = '0';
+        modal.style.backgroundColor = 'rgba(255,255,255,0.95)';
+        modal.style.zIndex = '10000';
+        modal.style.justifyContent = 'center';
+        modal.style.alignItems = 'center';
+    };
+
+    const closeModal = () => {
+        modal.style.display = 'none';
+    };
+
+    
+    navBtn.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+
+    toSignupLink.addEventListener('click', () => {
+        loginView.style.display = 'none';
+        signupView.style.display = 'block';
+    });
+
+    toLoginLink.addEventListener('click', () => {
+        signupView.style.display = 'none';
+        loginView.style.display = 'block';
+    });
+
+  
+    document.getElementById('submit-login').addEventListener('click', async () => {
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-password').value;
+        try {
+            await signInWithEmailAndPassword(auth, email, pass);
+            alert("Logged in!");
+            closeModal();
+        } catch (e) {
+            alert(e.message);
+        }
+    });
+    document.getElementById('submit-signup').addEventListener('click', async () => {
+    const email = document.getElementById('signup-email').value;
+    const pass = document.getElementById('signup-password').value;
+    
+    try {
+        await createUserWithEmailAndPassword(auth, email, pass);
+        alert("Account created!");
+        closeModal();
+    } catch (error) {
+        alert("Sign Up Error: " + error.message);
+    }
+});
+
+
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        navBtn.innerText = "Logout";
+        navBtn.onclick = () => signOut(auth);
+    } else {
+        navBtn.innerText = "Login";
+        navBtn.onclick = openModal;
+    }
+});
+
+
+document.getElementById('close-modal-btn').onclick = closeModal;
+
 
 </script>
 </html>
