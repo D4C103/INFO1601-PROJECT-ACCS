@@ -26,22 +26,75 @@
         }
 
         input[type="text"] {
-            padding: 15px;
-            padding-left: 30px;
-            width: 300px;
-            border: 2px solid #ddd;
+            padding: 15px 20px;
+            width: 360px;
+            border: 2px solid #d9d9d9;
             border-radius: 25px;
             outline: none;
+            background-color: white;
+            font-size: 1rem;
+            color: #2c3e50;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        select {
+            padding: 15px 20px;
+            width: 260px;
+            border: 2px solid #d9d9d9;
+            border-radius: 25px;
+            outline: none;
+            margin-left: 10px;
+            background-color: white;
+            color: #2c3e50;
+            font-size: 1rem;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+        }
+
+        select option {
+            padding: 12px;
+            background-color: white;
+            color: #2c3e50;
+        }
+
+        .search-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
         }
 
         button {
-            padding: 12px 25px;
+            padding: 15px 28px;
             background-color: var(--accent);
             color: white;
             border: none;
             border-radius: 25px;
             cursor: pointer;
-            transition: opacity 0.3s;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.15s, opacity 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            opacity: 0.95;
         }
 
         button:disabled { background-color: #ccc; }
@@ -145,12 +198,28 @@
         <button id="close-modal-btn">Close</button>
     </div>
 </div>
-  <div class="container">
+
+<div class="container">
     <div class="search-section">
-        <h1>LUME</h1>
-        <input type="text" id="searchInput" placeholder="Search by title or author..." value="The Lord of the Rings">
+    <h1>LUME</h1>
+    <div class="search-controls">
+        <input type="text" id="searchInput" placeholder="Search by title or author...">
+        <select id="genreFilter">
+            <option value="">All Genres</option>
+            <option value="fantasy">Fantasy</option>
+            <option value="science fiction">Science Fiction</option>
+            <option value="romance">Romance</option>
+            <option value="mystery">Mystery</option>
+            <option value="horror">Horror</option>
+            <option value="history">History</option>
+            <option value="biography">Biography</option>
+            <option value="adventure">Adventure</option>
+            <option value="thriller">Thriller</option>
+            <option value="young adult">Young Adult</option>
+        </select>
         <button onclick="newSearch()">Search</button>
     </div>
+</div>
 
     <div id="gallery" class="gallery">
         </div>
@@ -193,27 +262,78 @@
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app); 
-    const db = getFirestore(app); 
+    const db = getFirestore(app);
 
 
-   let currentPage = 1;
+    let currentPage = 1;
     let currentQuery = "";
+    let currentGenre = "";
+    let searchTimer;
+    let currentController = null;
+    let latestRequestId = 0;
     const limit = 12; 
 
-    async function fetchBooks(query, page) {
+    async function fetchBooks(query, page, genre = "") {
         const gallery = document.getElementById('gallery');
         gallery.innerHTML = "<p>Searching for books...</p>";
 
-      
-        const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`;
+        const hasText = query.trim() !== "";
+        const hasGenre = genre.trim() !== "";
+        const offset = (page - 1) * limit;
+
+        const requestId = ++latestRequestId;
+
+        if (currentController) {
+            currentController.abort();
+        }
+
+        currentController = new AbortController();
+
+        let url = "";
+        let mode = "";
+
+        if (!hasText && !hasGenre) {
+            mode = "trending";
+            url = `https://openlibrary.org/trending/daily.json?limit=${limit}&offset=${offset}`;
+        } else if (!hasText && hasGenre) {
+            mode = "subject";
+            url = `https://openlibrary.org/subjects/${encodeURIComponent(genre.toLowerCase())}.json?limit=${limit}&offset=${offset}`;
+        } else {
+            mode = "search";
+            const finalQuery = buildSearchQuery(query, genre);
+            url = `https://openlibrary.org/search.json?q=${encodeURIComponent(finalQuery)}&page=${page}&limit=${limit}`;
+        }
 
         try {
-            const response = await fetch(url);
+            const response = await fetch(url, { signal: currentController.signal });
             const data = await response.json();
-            renderGallery(data.docs);
-            updatePaginationUI(data.numFound);
+
+            if (requestId !== latestRequestId) return;
+
+            let books = [];
+            let totalResults = 0;
+
+            if (mode === "search") {
+                books = data.docs || [];
+                totalResults = data.numFound || books.length;
+
+                const words = query.trim().toLowerCase().split(/\s+/);
+                books = books.filter(book => {
+                    if (!book.title) return false;
+                    const title = book.title.toLowerCase();
+                    return words.every(word => title.includes(word));
+                });
+            } else {
+                books = data.works || [];
+                totalResults = data.work_count || books.length;
+            }
+
+            renderGallery(books);
+            updatePaginationUI(totalResults);
         } catch (error) {
-            gallery.innerHTML = "<p>Error loading data. Please try again later.</p>";
+            if (error.name !== "AbortError" && requestId === latestRequestId) {
+                gallery.innerHTML = "<p>Error loading data. Please try again later.</p>";
+            }
         }
     }
 
@@ -221,23 +341,28 @@
         const gallery = document.getElementById('gallery');
         gallery.innerHTML = "";
 
-        if (books.length === 0) {
+        if (!books || books.length === 0) {
             gallery.innerHTML = "<p>No books found.</p>";
             return;
         }
 
         books.forEach(book => {
-            const coverId = book.cover_i;
+            const coverId = book.cover_i || book.cover_id;
             const coverUrl = coverId
                 ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
                 : 'https://via.placeholder.com/200x300?text=No+Cover';
+
+            const author =
+                book.author_name?.[0] ||
+                book.authors?.[0]?.name ||
+                'Unknown Author';
 
             const card = document.createElement('div');
             card.className = 'book-card';
             card.innerHTML = `
                 <img src="${coverUrl}" alt="${book.title}">
-                <h3>${book.title}</h3>
-                <small>${book.author_name ? book.author_name[0] : 'Unknown Author'}</small>
+                <h3>${book.title || "Untitled"}</h3>
+                <small>${author}</small>
             `;
             gallery.appendChild(card);
         });
@@ -251,23 +376,38 @@
     }
 
     function newSearch() {
-        currentQuery = document.getElementById('searchInput').value;
+        currentQuery = document.getElementById('searchInput').value.trim();
+        currentGenre = document.getElementById('genreFilter').value;
         currentPage = 1;
-        if (currentQuery) fetchBooks(currentQuery, currentPage);
+        fetchBooks(currentQuery, currentPage, currentGenre);
     }
+
     window.newSearch = newSearch; 
+
+    document.getElementById("genreFilter").addEventListener("change", () => {
+        newSearch();
+    });
+
+    document.getElementById("searchInput").addEventListener("input", () => {
+        clearTimeout(searchTimer);
+
+        searchTimer = setTimeout(() => {
+            newSearch();
+        }, 500);
+    });
 
     function changePage(step) {
         currentPage += step;
-        fetchBooks(currentQuery, currentPage);
+        fetchBooks(currentQuery, currentPage, currentGenre);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    window.changePage = changePage; 
 
+    window.changePage = changePage; 
     
     window.onload = () => {
-        currentQuery = document.getElementById('searchInput').value;
-        fetchBooks(currentQuery, currentPage);
+        currentQuery = document.getElementById('searchInput').value.trim();
+        currentGenre = document.getElementById('genreFilter').value;
+        fetchBooks(currentQuery, currentPage, currentGenre);
     };
       const navBtn = document.getElementById('nav-login-btn');
     const modal = document.getElementById('auth-modal-overlay');
@@ -342,6 +482,27 @@ onAuthStateChanged(auth, (user) => {
         navBtn.onclick = openModal;
     }
 });
+
+function buildSearchQuery(query, genre) {
+    const parts = [];
+
+    if (query.trim()) {
+        const words = query
+            .trim()
+            .toLowerCase()
+            .split(/\s+/)
+            .map(word => `${word}*`)
+            .join(" AND ");
+
+        parts.push(`title:(${words})`);
+    }
+
+    if (genre.trim()) {
+        parts.push(`subject:"${genre.trim()}"`);
+    }
+
+    return parts.join(" AND ");
+}
 
 
 document.getElementById('close-modal-btn').onclick = closeModal;
