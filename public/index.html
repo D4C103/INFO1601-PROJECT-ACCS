@@ -117,7 +117,37 @@
 </div>
 
 </body>
-<script>
+<script type="module">
+    import firebaseConfig  from "./firebaseConfig.js";
+    // 1. Core App Engine (Always needed first)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+
+   // 2. Authentication (Login/Register/Logout/Status)
+    import {
+     getAuth,
+     createUserWithEmailAndPassword,
+     signInWithEmailAndPassword,
+     signOut,
+     onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+    // 3. Firestore (Database/Favorites/Real-time Updates)
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      getDoc,
+      updateDoc,
+      arrayUnion,
+      arrayRemove,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app); // Used for login logic
+    const db = getFirestore(app); // Used for favorites logic
+
+
    let currentPage = 1;
     let currentQuery = "";
     const limit = 12; // Books per page
@@ -177,12 +207,14 @@
         currentPage = 1;
         if (currentQuery) fetchBooks(currentQuery, currentPage);
     }
+    window.newSearch = newSearch; // Make it globally accessible
 
     function changePage(step) {
         currentPage += step;
         fetchBooks(currentQuery, currentPage);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    window.changePage = changePage; // Make it globally accessible
 
     // Initial Load
     window.onload = () => {
