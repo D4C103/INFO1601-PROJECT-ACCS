@@ -26,31 +26,75 @@
         }
 
         input[type="text"] {
-            padding: 15px;
-            padding-left: 30px;
-            width: 300px;
-            border: 2px solid #ddd;
+            padding: 15px 20px;
+            width: 360px;
+            border: 2px solid #d9d9d9;
             border-radius: 25px;
             outline: none;
+            background-color: white;
+            font-size: 1rem;
+            color: #2c3e50;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         select {
-            padding: 15px;
-            width: 220px;
-            border: 2px solid #ddd;
+            padding: 15px 20px;
+            width: 260px;
+            border: 2px solid #d9d9d9;
             border-radius: 25px;
             outline: none;
             margin-left: 10px;
+            background-color: white;
+            color: #2c3e50;
+            font-size: 1rem;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.15);
+        }
+
+        select option {
+            padding: 12px;
+            background-color: white;
+            color: #2c3e50;
+        }
+
+        .search-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
         }
 
         button {
-            padding: 12px 25px;
+            padding: 15px 28px;
             background-color: var(--accent);
             color: white;
             border: none;
             border-radius: 25px;
             cursor: pointer;
-            transition: opacity 0.3s;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: transform 0.15s, opacity 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            opacity: 0.95;
         }
 
         button:disabled { background-color: #ccc; }
@@ -154,10 +198,12 @@
         <button id="close-modal-btn">Close</button>
     </div>
 </div>
-  <div class="container">
+
+<div class="container">
     <div class="search-section">
-        <h1>LUME</h1>
-        <input type="text" id="searchInput" placeholder="Search by title or author..." value="The Lord of the Rings">
+    <h1>LUME</h1>
+    <div class="search-controls">
+        <input type="text" id="searchInput" placeholder="Search by title or author...">
         <select id="genreFilter">
             <option value="">All Genres</option>
             <option value="fantasy">Fantasy</option>
@@ -170,9 +216,10 @@
             <option value="adventure">Adventure</option>
             <option value="thriller">Thriller</option>
             <option value="young adult">Young Adult</option>
-</select>
+        </select>
         <button onclick="newSearch()">Search</button>
     </div>
+</div>
 
     <div id="gallery" class="gallery">
         </div>
@@ -216,7 +263,6 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app); 
     const db = getFirestore(app);
-    const DEFAULT_QUERY = "the";
 
 
     let currentPage = 1;
