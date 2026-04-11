@@ -215,28 +215,79 @@
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app); 
-    const db = getFirestore(app); 
+    const db = getFirestore(app);
+    const DEFAULT_QUERY = "the";
 
 
     let currentPage = 1;
     let currentQuery = "";
     let currentGenre = "";
+    let searchTimer;
+    let currentController = null;
+    let latestRequestId = 0;
     const limit = 12; 
 
     async function fetchBooks(query, page, genre = "") {
         const gallery = document.getElementById('gallery');
         gallery.innerHTML = "<p>Searching for books...</p>";
 
-        const finalQuery = buildSearchQuery(query, genre);
-        const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(finalQuery)}&page=${page}&limit=${limit}`;
+        const hasText = query.trim() !== "";
+        const hasGenre = genre.trim() !== "";
+        const offset = (page - 1) * limit;
+
+        const requestId = ++latestRequestId;
+
+        if (currentController) {
+            currentController.abort();
+        }
+
+        currentController = new AbortController();
+
+        let url = "";
+        let mode = "";
+
+        if (!hasText && !hasGenre) {
+            mode = "trending";
+            url = `https://openlibrary.org/trending/daily.json?limit=${limit}&offset=${offset}`;
+        } else if (!hasText && hasGenre) {
+            mode = "subject";
+            url = `https://openlibrary.org/subjects/${encodeURIComponent(genre.toLowerCase())}.json?limit=${limit}&offset=${offset}`;
+        } else {
+            mode = "search";
+            const finalQuery = buildSearchQuery(query, genre);
+            url = `https://openlibrary.org/search.json?q=${encodeURIComponent(finalQuery)}&page=${page}&limit=${limit}`;
+        }
 
         try {
-            const response = await fetch(url);
+            const response = await fetch(url, { signal: currentController.signal });
             const data = await response.json();
-            renderGallery(data.docs || []);
-            updatePaginationUI(data.numFound || 0);
+
+            if (requestId !== latestRequestId) return;
+
+            let books = [];
+            let totalResults = 0;
+
+            if (mode === "search") {
+                books = data.docs || [];
+                totalResults = data.numFound || books.length;
+
+                const words = query.trim().toLowerCase().split(/\s+/);
+                books = books.filter(book => {
+                    if (!book.title) return false;
+                    const title = book.title.toLowerCase();
+                    return words.every(word => title.includes(word));
+                });
+            } else {
+                books = data.works || [];
+                totalResults = data.work_count || books.length;
+            }
+
+            renderGallery(books);
+            updatePaginationUI(totalResults);
         } catch (error) {
-            gallery.innerHTML = "<p>Error loading data. Please try again later.</p>";
+            if (error.name !== "AbortError" && requestId === latestRequestId) {
+                gallery.innerHTML = "<p>Error loading data. Please try again later.</p>";
+            }
         }
     }
 
@@ -244,23 +295,28 @@
         const gallery = document.getElementById('gallery');
         gallery.innerHTML = "";
 
-        if (books.length === 0) {
+        if (!books || books.length === 0) {
             gallery.innerHTML = "<p>No books found.</p>";
             return;
         }
 
         books.forEach(book => {
-            const coverId = book.cover_i;
+            const coverId = book.cover_i || book.cover_id;
             const coverUrl = coverId
                 ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
                 : 'https://via.placeholder.com/200x300?text=No+Cover';
+
+            const author =
+                book.author_name?.[0] ||
+                book.authors?.[0]?.name ||
+                'Unknown Author';
 
             const card = document.createElement('div');
             card.className = 'book-card';
             card.innerHTML = `
                 <img src="${coverUrl}" alt="${book.title}">
-                <h3>${book.title}</h3>
-                <small>${book.author_name ? book.author_name[0] : 'Unknown Author'}</small>
+                <h3>${book.title || "Untitled"}</h3>
+                <small>${author}</small>
             `;
             gallery.appendChild(card);
         });
@@ -277,16 +333,21 @@
         currentQuery = document.getElementById('searchInput').value.trim();
         currentGenre = document.getElementById('genreFilter').value;
         currentPage = 1;
-
-        if (currentQuery || currentGenre) {
-            fetchBooks(currentQuery, currentPage, currentGenre);
-        }
+        fetchBooks(currentQuery, currentPage, currentGenre);
     }
 
     window.newSearch = newSearch; 
 
     document.getElementById("genreFilter").addEventListener("change", () => {
         newSearch();
+    });
+
+    document.getElementById("searchInput").addEventListener("input", () => {
+        clearTimeout(searchTimer);
+
+        searchTimer = setTimeout(() => {
+            newSearch();
+        }, 500);
     });
 
     function changePage(step) {
@@ -380,7 +441,14 @@ function buildSearchQuery(query, genre) {
     const parts = [];
 
     if (query.trim()) {
-        parts.push(`title:"${query.trim()}"`);
+        const words = query
+            .trim()
+            .toLowerCase()
+            .split(/\s+/)
+            .map(word => `${word}*`)
+            .join(" AND ");
+
+        parts.push(`title:(${words})`);
     }
 
     if (genre.trim()) {
