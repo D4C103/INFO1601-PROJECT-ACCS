@@ -34,6 +34,15 @@
             outline: none;
         }
 
+        select {
+            padding: 15px;
+            width: 220px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+            margin-left: 10px;
+        }
+
         button {
             padding: 12px 25px;
             background-color: var(--accent);
@@ -149,6 +158,19 @@
     <div class="search-section">
         <h1>LUME</h1>
         <input type="text" id="searchInput" placeholder="Search by title or author..." value="The Lord of the Rings">
+        <select id="genreFilter">
+            <option value="">All Genres</option>
+            <option value="fantasy">Fantasy</option>
+            <option value="science fiction">Science Fiction</option>
+            <option value="romance">Romance</option>
+            <option value="mystery">Mystery</option>
+            <option value="horror">Horror</option>
+            <option value="history">History</option>
+            <option value="biography">Biography</option>
+            <option value="adventure">Adventure</option>
+            <option value="thriller">Thriller</option>
+            <option value="young adult">Young Adult</option>
+</select>
         <button onclick="newSearch()">Search</button>
     </div>
 
@@ -196,22 +218,23 @@
     const db = getFirestore(app); 
 
 
-   let currentPage = 1;
+    let currentPage = 1;
     let currentQuery = "";
+    let currentGenre = "";
     const limit = 12; 
 
-    async function fetchBooks(query, page) {
+    async function fetchBooks(query, page, genre = "") {
         const gallery = document.getElementById('gallery');
         gallery.innerHTML = "<p>Searching for books...</p>";
 
-      
-        const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`;
+        const finalQuery = buildSearchQuery(query, genre);
+        const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(finalQuery)}&page=${page}&limit=${limit}`;
 
         try {
             const response = await fetch(url);
             const data = await response.json();
-            renderGallery(data.docs);
-            updatePaginationUI(data.numFound);
+            renderGallery(data.docs || []);
+            updatePaginationUI(data.numFound || 0);
         } catch (error) {
             gallery.innerHTML = "<p>Error loading data. Please try again later.</p>";
         }
@@ -251,23 +274,33 @@
     }
 
     function newSearch() {
-        currentQuery = document.getElementById('searchInput').value;
+        currentQuery = document.getElementById('searchInput').value.trim();
+        currentGenre = document.getElementById('genreFilter').value;
         currentPage = 1;
-        if (currentQuery) fetchBooks(currentQuery, currentPage);
+
+        if (currentQuery || currentGenre) {
+            fetchBooks(currentQuery, currentPage, currentGenre);
+        }
     }
+
     window.newSearch = newSearch; 
+
+    document.getElementById("genreFilter").addEventListener("change", () => {
+        newSearch();
+    });
 
     function changePage(step) {
         currentPage += step;
-        fetchBooks(currentQuery, currentPage);
+        fetchBooks(currentQuery, currentPage, currentGenre);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    window.changePage = changePage; 
 
+    window.changePage = changePage; 
     
     window.onload = () => {
-        currentQuery = document.getElementById('searchInput').value;
-        fetchBooks(currentQuery, currentPage);
+        currentQuery = document.getElementById('searchInput').value.trim();
+        currentGenre = document.getElementById('genreFilter').value;
+        fetchBooks(currentQuery, currentPage, currentGenre);
     };
       const navBtn = document.getElementById('nav-login-btn');
     const modal = document.getElementById('auth-modal-overlay');
@@ -342,6 +375,20 @@ onAuthStateChanged(auth, (user) => {
         navBtn.onclick = openModal;
     }
 });
+
+function buildSearchQuery(query, genre) {
+    const parts = [];
+
+    if (query.trim()) {
+        parts.push(`title:"${query.trim()}"`);
+    }
+
+    if (genre.trim()) {
+        parts.push(`subject:"${genre.trim()}"`);
+    }
+
+    return parts.join(" AND ");
+}
 
 
 document.getElementById('close-modal-btn').onclick = closeModal;
