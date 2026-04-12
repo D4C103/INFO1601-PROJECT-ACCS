@@ -134,6 +134,32 @@
             flex-wrap: wrap;
         }
 
+        .auth-status-card {
+            min-width: 240px;
+            max-width: 320px;
+            padding: 15px 18px;
+            border-radius: 22px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border: 1px solid rgba(121, 88, 56, 0.14);
+            box-shadow: 0 8px 18px rgba(92, 56, 29, 0.10);
+            backdrop-filter: blur(8px);
+        }
+
+        .auth-status-logged-in {
+            background: linear-gradient(180deg, rgba(255, 248, 232, 0.96) 0%, rgba(243, 232, 214, 0.92) 100%);
+            color: var(--primary);
+        }
+
+        .auth-status-logged-out {
+            background: linear-gradient(180deg, rgba(245, 239, 228, 0.90) 0%, rgba(234, 223, 208, 0.88) 100%);
+            color: #6c5a49;
+}
+
         #resultsTitle {
             position: relative;
             text-align: center;
@@ -895,6 +921,10 @@
     <div class="search-section">
    
     <div class="search-controls">
+        <div id="authStatusCard" class="auth-status-card auth-status-logged-out">
+            Not logged in
+        </div>
+
         <input type="text" id="searchInput" placeholder="Search by title...">
         <select id="genreFilter">
             <option value="">All Genres</option>
@@ -1586,9 +1616,9 @@
         const email = document.getElementById('login-email').value;
         const pass = document.getElementById('login-password').value;
         try {
-            await signInWithEmailAndPassword(auth, email, pass);
-            alert("Logged in!");
+            const userCredential = await signInWithEmailAndPassword(auth, email, pass);
             closeModal();
+            alert(`Logged in as ${userCredential.user.email}`);
         } catch (e) {
             alert(e.message);
         }
@@ -1607,8 +1637,24 @@
         }
     });
 
+    function updateAuthStatusCard(user) {
+        const card = document.getElementById("authStatusCard");
+        if (!card) return;
+
+        if (user) {
+            card.textContent = `Logged in as ${user.email}`;
+            card.classList.remove("auth-status-logged-out");
+            card.classList.add("auth-status-logged-in");
+        } else {
+            card.textContent = "Not logged in";
+            card.classList.remove("auth-status-logged-in");
+            card.classList.add("auth-status-logged-out");
+        }
+    }
+
 
     onAuthStateChanged(auth, async (user) => {
+        updateAuthStatusCard(user);
         if (user) {
             navBtn.innerText = "Logout";
             navBtn.onclick = async () => { await signOut(auth); 
