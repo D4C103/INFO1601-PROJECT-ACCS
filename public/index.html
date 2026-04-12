@@ -853,13 +853,18 @@
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             navBtn.innerText = "Logout";
-            navBtn.onclick = () => signOut(auth);
+            navBtn.onclick = async () => { await signOut(auth); 
+                clearUserLists();
+                fetchBooks(currentQuery, currentPage, currentGenre);
+            };
+            await loadUserLists();
         } else {
             navBtn.innerText = "Login";
             navBtn.onclick = openModal;
+            clearUserLists();
         }
 
-        await loadUserLists();
+       fetchBooks(currentQuery, currentPage, currentGenre);
     });
 
   
