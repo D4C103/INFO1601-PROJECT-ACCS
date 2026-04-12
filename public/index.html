@@ -3,7 +3,7 @@
   <head>
   <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="/public/manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <style>
         :root {
             --primary: #2c3e50;
@@ -336,17 +336,13 @@
 
    
     import {
-      getFirestore,
-      doc,
-      setDoc,
-      getDocs,
-      updateDoc,
-      arrayUnion,
-      arrayRemove,
-      onSnapshot,
-      collection,
-      query,
-      where
+        getFirestore,
+        doc,
+        setDoc,
+        getDocs,
+        deleteDoc,
+        collection,
+        serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const app = initializeApp(firebaseConfig);
@@ -420,38 +416,72 @@
         }
     }
 
-    function getUserKey() {
-        return auth.currentUser ? auth.currentUser.uid : "guest";
+    let favouriteIds = new Set();
+    let planToReadIds = new Set();
+
+    function bookDocId(workKey) {
+        return encodeURIComponent(workKey);
     }
 
-    function getStorageKey(type) {
-        return `${type}_${getUserKey()}`;
+    function clearUserLists() {
+        favouriteIds.clear();
+        planToReadIds.clear();
     }
 
-    function getSavedList(type) {
-        const raw = localStorage.getItem(getStorageKey(type));
-        return raw ? JSON.parse(raw) : [];
-    }
+    async function loadUserLists() {
+        clearUserLists();
 
-    function saveList(type, list) {
-        localStorage.setItem(getStorageKey(type), JSON.stringify(list));
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const favSnap = await getDocs(collection(db, "users", user.uid, "favourites"));
+        favSnap.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (data.workKey) {
+                favouriteIds.add(data.workKey);
+            }
+        });
+
+        const planSnap = await getDocs(collection(db, "users", user.uid, "planToRead"));
+        planSnap.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (data.workKey) {
+                planToReadIds.add(data.workKey);
+            }
+        });
     }
 
     function isSaved(type, workKey) {
-        return getSavedList(type).some(book => book.workKey === workKey);
+        return type === "favourites"
+            ? favouriteIds.has(workKey)
+            : planToReadIds.has(workKey);
     }
 
-    function toggleSaved(type, bookData) {
-        let list = getSavedList(type);
-        const exists = list.some(book => book.workKey === bookData.workKey);
+    async function toggleSaved(type, bookData) {
+        const user = auth.currentUser;
 
-        if (exists) {
-            list = list.filter(book => book.workKey !== bookData.workKey);
-        } else {
-            list.push(bookData);
+        if (!user) {
+            alert("Please log in first.");
+            openModal();
+            return false;
         }
 
-        saveList(type, list);
+        const collectionName = type === "favourites" ? "favourites" : "planToRead";
+        const docRef = doc(db, "users", user.uid, collectionName, bookDocId(bookData.workKey));
+        const targetSet = type === "favourites" ? favouriteIds : planToReadIds;
+
+        if (targetSet.has(bookData.workKey)) {
+            await deleteDoc(docRef);
+            targetSet.delete(bookData.workKey);
+        } else {
+            await setDoc(docRef, {
+                ...bookData,
+                savedAt: serverTimestamp()
+            });
+            targetSet.add(bookData.workKey);
+        }
+
+        return true;
     }
 
     function normalizeBook(book) {
@@ -516,16 +546,16 @@
             const favBtn = card.querySelector(".fav-btn");
             const planBtn = card.querySelector(".plan-btn");
 
-            favBtn.addEventListener("click", (event) => {
+            favBtn.addEventListener("click", async (event) => {
                 event.stopPropagation();
-                toggleSaved("favourites", bookData);
-                renderGallery(books);
+                const changed = await toggleSaved("favourites", bookData);
+                if (changed) renderGallery(books);
             });
 
-            planBtn.addEventListener("click", (event) => {
+            planBtn.addEventListener("click", async (event) => {
                 event.stopPropagation();
-                toggleSaved("planToRead", bookData);
-                renderGallery(books);
+                const changed = await toggleSaved("planToRead", bookData);
+                if (changed) renderGallery(books);
             });
 
             gallery.appendChild(card);
@@ -542,9 +572,8 @@
 
         sessionStorage.setItem("lumeReturnState", JSON.stringify(state));
         sessionStorage.setItem("lumeSelectedBook", JSON.stringify(bookData));
-        sessionStorage.setItem("lumeUserKey", getUserKey());
 
-        window.location.href = `../details.html?workKey=${encodeURIComponent(bookData.workKey)}`;
+        window.location.href = `./public/details.html?workKey=${encodeURIComponent(bookData.workKey)}`;
     }
 
     function updateResultsTitle() {
@@ -565,47 +594,47 @@
     }
 
    function updatePaginationUI(totalResults) {
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const pageIndicator = document.getElementById('pageIndicator');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const pageIndicator = document.getElementById('pageIndicator');
 
-    if (currentMode === "trending") {
-        pageIndicator.innerText = "Trending";
+        if (currentMode === "trending") {
+            pageIndicator.innerText = "Trending";
+            prevBtn.disabled = (currentPage === 1);
+            nextBtn.disabled = true;
+            return;
+        }
+
+        const totalPages = Math.ceil(totalResults / limit) || 1;
+        pageIndicator.innerText = `Page ${currentPage} of ${totalPages}`;
         prevBtn.disabled = (currentPage === 1);
-        nextBtn.disabled = true;
-        return;
+        nextBtn.disabled = (currentPage >= totalPages);
     }
-
-    const totalPages = Math.ceil(totalResults / limit) || 1;
-    pageIndicator.innerText = `Page ${currentPage} of ${totalPages}`;
-    prevBtn.disabled = (currentPage === 1);
-    nextBtn.disabled = (currentPage >= totalPages);
-}
 
 
     
 
   
     function newSearch() {
-            currentQuery = document.getElementById('searchInput').value.trim();
-            currentGenre = document.getElementById('genreFilter').value;
-            currentPage = 1;
-            fetchBooks(currentQuery, currentPage, currentGenre);
-        }
+        currentQuery = document.getElementById('searchInput').value.trim();
+        currentGenre = document.getElementById('genreFilter').value;
+        currentPage = 1;
+        fetchBooks(currentQuery, currentPage, currentGenre);
+    }
 
-        window.newSearch = newSearch; 
+    window.newSearch = newSearch; 
 
-        document.getElementById("genreFilter").addEventListener("change", () => {
+    document.getElementById("genreFilter").addEventListener("change", () => {
+        newSearch();
+    });
+
+    document.getElementById("searchInput").addEventListener("input", () => {
+        clearTimeout(searchTimer);
+
+        searchTimer = setTimeout(() => {
             newSearch();
-        });
-
-        document.getElementById("searchInput").addEventListener("input", () => {
-            clearTimeout(searchTimer);
-
-            searchTimer = setTimeout(() => {
-                newSearch();
-            }, 500);
-        });
+        }, 500);
+    });
 
     function changePage(step) {
         const prevBtn = document.getElementById('prevBtn');
@@ -627,7 +656,8 @@
         currentGenre = document.getElementById('genreFilter').value;
         fetchBooks(currentQuery, currentPage, currentGenre);
     };
-      const navBtn = document.getElementById('nav-login-btn');
+
+    const navBtn = document.getElementById('nav-login-btn');
     const modal = document.getElementById('auth-modal-overlay');
     const closeBtn = document.getElementById('close-modal-btn');
     const toSignupLink = document.getElementById('link-to-signup');
@@ -677,53 +707,57 @@
             alert(e.message);
         }
     });
+
     document.getElementById('submit-signup').addEventListener('click', async () => {
-    const email = document.getElementById('signup-email').value;
-    const pass = document.getElementById('signup-password').value;
-    
-    try {
-        await createUserWithEmailAndPassword(auth, email, pass);
-        alert("Account created!");
-        closeModal();
-    } catch (error) {
-        alert("Sign Up Error: " + error.message);
+        const email = document.getElementById('signup-email').value;
+        const pass = document.getElementById('signup-password').value;
+        
+        try {
+            await createUserWithEmailAndPassword(auth, email, pass);
+            alert("Account created!");
+            closeModal();
+        } catch (error) {
+            alert("Sign Up Error: " + error.message);
+        }
+    });
+
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            navBtn.innerText = "Logout";
+            navBtn.onclick = () => signOut(auth);
+        } else {
+            navBtn.innerText = "Login";
+            navBtn.onclick = openModal;
+        }
+
+        await loadUserLists();
+        fetchBooks(currentQuery, currentPage, currentGenre);
+    });
+
+    function buildSearchQuery(query, genre) {
+        const parts = [];
+
+        if (query.trim()) {
+            const words = query
+                .trim()
+                .toLowerCase()
+                .split(/\s+/)
+                .map(word => `${word}*`)
+                .join(" AND ");
+
+            parts.push(`title:(${words})`);
+        }
+
+        if (genre.trim()) {
+            parts.push(`subject:"${genre.trim()}"`);
+        }
+
+        return parts.join(" AND ");
     }
-});
 
 
-onAuthStateChanged(auth, (user) => {
-    if (user) {
-        navBtn.innerText = "Logout";
-        navBtn.onclick = () => signOut(auth);
-    } else {
-        navBtn.innerText = "Login";
-        navBtn.onclick = openModal;
-    }
-});
-
-function buildSearchQuery(query, genre) {
-    const parts = [];
-
-    if (query.trim()) {
-        const words = query
-            .trim()
-            .toLowerCase()
-            .split(/\s+/)
-            .map(word => `${word}*`)
-            .join(" AND ");
-
-        parts.push(`title:(${words})`);
-    }
-
-    if (genre.trim()) {
-        parts.push(`subject:"${genre.trim()}"`);
-    }
-
-    return parts.join(" AND ");
-}
-
-
-document.getElementById('close-modal-btn').onclick = closeModal;
+    document.getElementById('close-modal-btn').onclick = closeModal;
 
 
 </script>
