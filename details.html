@@ -60,6 +60,50 @@
             color: #444;
         }
 
+        .title-bar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .title-bar h1 {
+            margin: 0;
+            flex: 1;
+            color: var(--primary);
+            line-height: 1.2;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 0;
+            cursor: pointer;
+            box-shadow: none;
+            border-radius: 0;
+        }
+
+        .icon-btn img {
+            width: 24px;
+            height: 24px;
+            display: block;
+            object-fit: contain;
+            background: transparent;
+        }
+
+        .detail-actions {
+            margin: 12px 0 18px 0;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .icon-btn.active {
+            transform: scale(1.08);
+        }
+
         @media (max-width: 768px) {
             .book-layout {
                 grid-template-columns: 1fr;
@@ -74,10 +118,24 @@
         <div class="book-layout">
             <img id="bookCover" src="" alt="Book Cover">
             <div class="meta">
-                <h1 id="bookTitle">Loading...</h1>
+                <div class="title-bar">
+                    <h1 id="bookTitle">Loading...</h1>
+                    <button id="favBtn" class="icon-btn" title="Favourite">
+                        <img id="favIcon" src="HeartOutline.jpg" alt="Favourite">
+                    </button>
+                </div>
+
                 <p><strong>Author:</strong> <span id="bookAuthor">Loading...</span></p>
+
                 <p><strong>Description:</strong></p>
                 <p id="bookDescription">Loading...</p>
+
+                <div class="detail-actions">
+                    <button id="planBtn" class="icon-btn" title="Plan to Read">
+                        <img id="planIcon" src="BookMarkOutline.png" alt="Plan to Read">
+                    </button>
+                </div>
+
                 <p><strong>Subjects:</strong> <span id="bookSubjects">Loading...</span></p>
             </div>
         </div>
@@ -88,6 +146,65 @@
             const params = new URLSearchParams(window.location.search);
             return params.get(name);
         }
+
+        let currentBookData = null;
+
+        function getUserKey() {
+            return sessionStorage.getItem("lumeUserKey") || "guest";
+        }
+
+        function getStorageKey(type) {
+            return `${type}_${getUserKey()}`;
+        }
+
+        function getSavedList(type) {
+            const raw = localStorage.getItem(getStorageKey(type));
+            return raw ? JSON.parse(raw) : [];
+        }
+
+        function saveList(type, list) {
+            localStorage.setItem(getStorageKey(type), JSON.stringify(list));
+        }
+
+        function isSaved(type, workKey) {
+            return getSavedList(type).some(book => book.workKey === workKey);
+        }
+
+        function toggleSaved(type, bookData) {
+            let list = getSavedList(type);
+            const exists = list.some(book => book.workKey === bookData.workKey);
+
+            if (exists) {
+                list = list.filter(book => book.workKey !== bookData.workKey);
+            } else {
+                list.push(bookData);
+            }
+
+            saveList(type, list);
+        }
+
+        function updateActionIcons(bookData) {
+            const favActive = isSaved("favourites", bookData.workKey);
+            const planActive = isSaved("planToRead", bookData.workKey);
+
+            document.getElementById("favIcon").src = favActive ? "HeartFilled.jpg" : "HeartOutline.jpg";
+            document.getElementById("planIcon").src = planActive ? "BookMarkFilled.jpg" : "BookMarkOutline.png";
+
+            document.getElementById("favBtn").classList.toggle("active", favActive);
+            document.getElementById("planBtn").classList.toggle("active", planActive);
+        }
+
+        document.getElementById("favBtn").addEventListener("click", () => {
+            if (!currentBookData) return;
+            toggleSaved("favourites", currentBookData);
+            updateActionIcons(currentBookData);
+        });
+
+        document.getElementById("planBtn").addEventListener("click", () => {
+            if (!currentBookData) return;
+            toggleSaved("planToRead", currentBookData);
+            updateActionIcons(currentBookData);
+        });
 
         async function loadBookDetails() {
             const workKey = getQueryParam("workKey");
@@ -102,15 +219,22 @@
                 const response = await fetch(`https://openlibrary.org${workKey}.json`);
                 const data = await response.json();
 
-                const coverId = selectedBook.coverId;
+                currentBookData = {
+                    workKey: workKey,
+                    title: data.title || selectedBook.title || "Untitled",
+                    author: selectedBook.author || "Unknown Author",
+                    coverId: selectedBook.coverId || null
+                };
+
+                const coverId = currentBookData.coverId;
                 const coverUrl = coverId
                     ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
                     : 'https://via.placeholder.com/300x450?text=No+Cover';
 
                 document.getElementById("bookCover").src = coverUrl;
-                document.getElementById("bookTitle").innerText = data.title || selectedBook.title || "Untitled";
-                document.getElementById("bookAuthor").innerText = selectedBook.author || "Unknown Author";
-
+                document.getElementById("bookTitle").innerText = currentBookData.title;
+                document.getElementById("bookAuthor").innerText = currentBookData.author;
+                
                 let description = "No description available.";
                 if (typeof data.description === "string") {
                     description = data.description;
@@ -125,6 +249,8 @@
                 } else {
                     document.getElementById("bookSubjects").innerText = "No subjects available.";
                 }
+
+                updateActionIcons(currentBookData);
             } catch (error) {
                 document.getElementById("bookTitle").innerText = "Error loading book details";
                 document.getElementById("bookDescription").innerText = "Please try again.";

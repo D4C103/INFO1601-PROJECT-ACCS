@@ -542,6 +542,7 @@
 
         sessionStorage.setItem("lumeReturnState", JSON.stringify(state));
         sessionStorage.setItem("lumeSelectedBook", JSON.stringify(bookData));
+        sessionStorage.setItem("lumeUserKey", getUserKey());
 
         window.location.href = `../details.html?workKey=${encodeURIComponent(bookData.workKey)}`;
     }
