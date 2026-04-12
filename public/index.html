@@ -3,7 +3,7 @@
   <head>
   <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="/public/manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <style>
         :root {
             --primary: #2c3e50;
@@ -573,7 +573,7 @@
         sessionStorage.setItem("lumeReturnState", JSON.stringify(state));
         sessionStorage.setItem("lumeSelectedBook", JSON.stringify(bookData));
 
-        window.location.href = `../details.html?workKey=${encodeURIComponent(bookData.workKey)}`;
+        window.location.href = `./details.html?workKey=${encodeURIComponent(bookData.workKey)}`;
     }
 
     function updateResultsTitle() {
