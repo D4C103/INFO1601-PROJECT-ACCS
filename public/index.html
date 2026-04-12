@@ -81,6 +81,17 @@
             flex-wrap: wrap;
         }
 
+        #resultsTitle {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 40px 0 30px 0;
+            letter-spacing: 0.5px;
+            line-height: 1.2;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.03);
+        }
+
         button {
             padding: 15px 28px;
             background-color: var(--accent);
@@ -175,6 +186,7 @@
         width: 100%;
         margin-bottom: 15px;
     }
+
     </style>
   </head>
 <body>
@@ -204,7 +216,7 @@
     <div class="search-section">
     <h1>LUME</h1>
     <div class="search-controls">
-        <input type="text" id="searchInput" placeholder="Search by title or author...">
+        <input type="text" id="searchInput" placeholder="Search by title...">
         <select id="genreFilter">
             <option value="">All Genres</option>
             <option value="fantasy">Fantasy</option>
@@ -221,7 +233,7 @@
         <button onclick="newSearch()">Search</button>
     </div>
 </div>
-
+<h2 id="resultsTitle">Trending Books</h2>
     <div id="gallery" class="gallery">
         </div>
 
@@ -324,6 +336,7 @@
 
             renderGallery(books);
             updatePaginationUI(totalResults);
+            updateResultsTitle();
         } catch (error) {
             if (error.name !== "AbortError" && requestId === latestRequestId) {
                 gallery.innerHTML = "<p>Error loading data. Please try again later.</p>";
@@ -332,35 +345,52 @@
     }
 
     function renderGallery(books) {
-    const gallery = document.getElementById('gallery');
-    gallery.innerHTML = "";
+        const gallery = document.getElementById('gallery');
+        gallery.innerHTML = "";
 
-    if (!books || books.length === 0) {
-        gallery.innerHTML = "<p>No books found.</p>";
-        return;
+        if (!books || books.length === 0) {
+            gallery.innerHTML = "<p>No books found.</p>";
+            return;
+        }
+
+        books.forEach(book => {
+            const coverId = book.cover_i || book.cover_id;
+            const coverUrl = coverId
+                ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
+                : 'https://via.placeholder.com/200x300?text=No+Cover';
+
+            const author =
+                book.author_name?.[0] ||
+                book.authors?.[0]?.name ||
+                'Unknown Author';
+
+            const card = document.createElement('div');
+            card.className = 'book-card';
+            card.innerHTML = `
+                <img src="${coverUrl}" alt="${book.title || "Untitled"}">
+                <h3>${book.title || "Untitled"}</h3>
+                <small>${author}</small>
+            `;
+            gallery.appendChild(card);
+        });
     }
 
-    books.forEach(book => {
-        const coverId = book.cover_i || book.cover_id;
-        const coverUrl = coverId
-            ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
-            : 'https://via.placeholder.com/200x300?text=No+Cover';
+    function updateResultsTitle() {
+        const title = document.getElementById("resultsTitle");
 
-        const author =
-            book.author_name?.[0] ||
-            book.authors?.[0]?.name ||
-            'Unknown Author';
-
-        const card = document.createElement('div');
-        card.className = 'book-card';
-        card.innerHTML = `
-            <img src="${coverUrl}" alt="${book.title || "Untitled"}">
-            <h3>${book.title || "Untitled"}</h3>
-            <small>${author}</small>
-        `;
-        gallery.appendChild(card);
-    });
-}
+        if (currentMode === "trending") {
+            title.innerText = "Trending Books";
+            title.style.display = "block";
+        } else if (currentMode === "subject") {
+            const genreName = currentGenre
+                ? currentGenre.charAt(0).toUpperCase() + currentGenre.slice(1)
+                : "Genre";
+            title.innerText = `${genreName} Books`;
+            title.style.display = "block";
+        } else if (currentMode === "search") {
+            title.style.display = "none";
+        }
+    }
 
    function updatePaginationUI(totalResults) {
     const prevBtn = document.getElementById('prevBtn');
@@ -406,6 +436,13 @@
         });
 
     function changePage(step) {
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+
+        if ((step < 0 && prevBtn.disabled) || (step > 0 && nextBtn.disabled)) {
+            return;
+        }
+
         currentPage += step;
         fetchBooks(currentQuery, currentPage, currentGenre);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -443,7 +480,7 @@
     };
 
     
-    navBtn.addEventListener('click', openModal);
+    navBtn.onclick = openModal;
     closeBtn.addEventListener('click', closeModal);
 
     toSignupLink.addEventListener('click', () => {
