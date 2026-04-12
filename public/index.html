@@ -573,7 +573,7 @@
         sessionStorage.setItem("lumeReturnState", JSON.stringify(state));
         sessionStorage.setItem("lumeSelectedBook", JSON.stringify(bookData));
 
-        window.location.href = `./details.html?workKey=${encodeURIComponent(bookData.workKey)}`;
+        window.location.href = `./public/details.html?workKey=${encodeURIComponent(bookData.workKey)}`;
     }
 
     function updateResultsTitle() {
