@@ -141,7 +141,24 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import firebaseConfig from "./firebaseConfig.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import {
+            getFirestore,
+            doc,
+            setDoc,
+            getDocs,
+            deleteDoc,
+            collection,
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
         function getQueryParam(name) {
             const params = new URLSearchParams(window.location.search);
             return params.get(name);
@@ -149,38 +166,72 @@
 
         let currentBookData = null;
 
-        function getUserKey() {
-            return sessionStorage.getItem("lumeUserKey") || "guest";
+        let currentBookData = null;
+        let favouriteIds = new Set();
+        let planToReadIds = new Set();
+
+        function bookDocId(workKey) {
+            return encodeURIComponent(workKey);
         }
 
-        function getStorageKey(type) {
-            return `${type}_${getUserKey()}`;
+        function clearUserLists() {
+            favouriteIds.clear();
+            planToReadIds.clear();
         }
 
-        function getSavedList(type) {
-            const raw = localStorage.getItem(getStorageKey(type));
-            return raw ? JSON.parse(raw) : [];
-        }
+        async function loadUserLists() {
+            clearUserLists();
 
-        function saveList(type, list) {
-            localStorage.setItem(getStorageKey(type), JSON.stringify(list));
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const favSnap = await getDocs(collection(db, "users", user.uid, "favourites"));
+            favSnap.forEach((docSnap) => {
+                const data = docSnap.data();
+                if (data.workKey) {
+                    favouriteIds.add(data.workKey);
+                }
+            });
+
+            const planSnap = await getDocs(collection(db, "users", user.uid, "planToRead"));
+            planSnap.forEach((docSnap) => {
+                const data = docSnap.data();
+                if (data.workKey) {
+                    planToReadIds.add(data.workKey);
+                }
+            });
         }
 
         function isSaved(type, workKey) {
-            return getSavedList(type).some(book => book.workKey === workKey);
+            return type === "favourites"
+                ? favouriteIds.has(workKey)
+                : planToReadIds.has(workKey);
         }
 
-        function toggleSaved(type, bookData) {
-            let list = getSavedList(type);
-            const exists = list.some(book => book.workKey === bookData.workKey);
+        async function toggleSaved(type, bookData) {
+            const user = auth.currentUser;
 
-            if (exists) {
-                list = list.filter(book => book.workKey !== bookData.workKey);
-            } else {
-                list.push(bookData);
+            if (!user) {
+                alert("Please log in first.");
+                return false;
             }
 
-            saveList(type, list);
+            const collectionName = type === "favourites" ? "favourites" : "planToRead";
+            const docRef = doc(db, "users", user.uid, collectionName, bookDocId(bookData.workKey));
+            const targetSet = type === "favourites" ? favouriteIds : planToReadIds;
+
+            if (targetSet.has(bookData.workKey)) {
+                await deleteDoc(docRef);
+                targetSet.delete(bookData.workKey);
+            } else {
+                await setDoc(docRef, {
+                    ...bookData,
+                    savedAt: serverTimestamp()
+                });
+                targetSet.add(bookData.workKey);
+            }
+
+            return true;
         }
 
         function updateActionIcons(bookData) {
@@ -194,16 +245,23 @@
             document.getElementById("planBtn").classList.toggle("active", planActive);
         }
 
-        document.getElementById("favBtn").addEventListener("click", () => {
+        document.getElementById("favBtn").addEventListener("click", async () => {
             if (!currentBookData) return;
-            toggleSaved("favourites", currentBookData);
-            updateActionIcons(currentBookData);
+            const changed = await toggleSaved("favourites", currentBookData);
+            if (changed) updateActionIcons(currentBookData);
         });
 
-        document.getElementById("planBtn").addEventListener("click", () => {
+        document.getElementById("planBtn").addEventListener("click", async () => {
             if (!currentBookData) return;
-            toggleSaved("planToRead", currentBookData);
-            updateActionIcons(currentBookData);
+            const changed = await toggleSaved("planToRead", currentBookData);
+            if (changed) updateActionIcons(currentBookData);
+        });
+
+        onAuthStateChanged(auth, async () => {
+            await loadUserLists();
+            if (currentBookData) {
+                updateActionIcons(currentBookData);
+            }
         });
 
         async function loadBookDetails() {
