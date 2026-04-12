@@ -191,6 +191,46 @@
             min-height: 70vh;
         }
 
+        .empty-list-state {
+            grid-column: 1 / -1;
+            min-height: 55vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 22px;
+            text-align: center;
+        }
+
+        .empty-list-state p {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fff1d2;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.18);
+        }
+
+        .empty-list-state .back-btn {
+            min-width: 240px;
+        }
+
+        .loading-list-state {
+            grid-column: 1 / -1;
+            min-height: 55vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .loading-list-state p {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fff1d2;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.18);
+        }
+
         .book-card {
             position: relative;
             cursor: pointer;
@@ -990,7 +1030,11 @@
 
     async function fetchBooks(query, page, genre = "") {
         const gallery = document.getElementById('gallery');
-        gallery.innerHTML = "<p>Searching for books...</p>";
+        gallery.innerHTML = `
+            <div class="loading-list-state">
+                <p>Searching for books...</p>
+            </div>
+        `;
 
         const hasText = query.trim() !== "";
         const hasGenre = genre.trim() !== "";
@@ -1596,7 +1640,11 @@
         const pagination = document.querySelector('.pagination');
         const searchSection = document.querySelector('.search-section');
 
-        gallery.innerHTML = "<p>Loading your list...</p>";
+        gallery.innerHTML = `
+            <div class="loading-list-state">
+                <p>Loading your list...</p>
+            </div>
+        `;
         currentMode = "personal"; // Custom mode to handle UI changes
 
         // Hide search and pagination for a "clean" list view
@@ -1612,8 +1660,12 @@
             snap.forEach(docSnap => books.push(docSnap.data()));
 
             if (books.length === 0) {
-                gallery.innerHTML = `<p>Your ${type} list is empty.</p>
-                                    <button class="back-btn" onclick="resetToSearch()">Go Back to Search</button>`;
+                gallery.innerHTML = `
+                    <div class="empty-list-state">
+                      <p>Your ${type === "favourites" ? "favorites" : "plan to read"} list is empty.</p>
+                        <button class="back-btn" onclick="resetToSearch()">Go Back to Search</button>
+                    </div>
+                `;
             } else {
                 // Add a back button at the top of the gallery
                 gallery.innerHTML = `<button class="back-btn" onclick="resetToSearch()">← Back to Search</button><div></div>`;
