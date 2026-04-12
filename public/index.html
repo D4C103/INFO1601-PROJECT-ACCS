@@ -1358,10 +1358,16 @@
             favBtn.addEventListener("click", async (event) => {
                 event.stopPropagation();
                 const changed = await toggleSaved("favourites", bookData);
+
                 if (changed) {
-                    renderGallery(books);
+                    if (currentMode === "personal" && currentListType) {
+                        await renderUserList(currentListType);
+                    } else {
+                        renderGallery(books);
+                    }
 
                     if (currentModalBookData && currentModalBookData.workKey === bookData.workKey) {
+                        updateModalActionIcons(currentModalBookData);
                         updateModalRatingUI(currentModalBookData);
                     }
                 }
@@ -1370,10 +1376,16 @@
             planBtn.addEventListener("click", async (event) => {
                 event.stopPropagation();
                 const changed = await toggleSaved("planToRead", bookData);
+
                 if (changed) {
-                    renderGallery(books);
+                    if (currentMode === "personal" && currentListType) {
+                        await renderUserList(currentListType);
+                    } else {
+                        renderGallery(books);
+                    }
 
                     if (currentModalBookData && currentModalBookData.workKey === bookData.workKey) {
+                        updateModalActionIcons(currentModalBookData);
                         updateModalRatingUI(currentModalBookData);
                     }
                 }
@@ -1387,7 +1399,11 @@
                     const changed = await setRating(bookData, rating);
 
                     if (changed) {
-                        renderGallery(books);
+                        if (currentMode === "personal" && currentListType) {
+                            await renderUserList(currentListType);
+                        } else {
+                            renderGallery(books);
+                        }
 
                         if (currentModalBookData && currentModalBookData.workKey === bookData.workKey) {
                             updateModalRatingUI(currentModalBookData);
@@ -1761,19 +1777,33 @@
 
     document.getElementById("modalFavBtn").addEventListener("click", async () => {
         if (!currentModalBookData) return;
+
         const changed = await toggleSaved("favourites", currentModalBookData);
+
         if (changed) {
             updateModalActionIcons(currentModalBookData);
-            renderGallery(lastRenderedBooks);
+
+            if (currentMode === "personal" && currentListType) {
+                await renderUserList(currentListType);
+            } else {
+                renderGallery(lastRenderedBooks);
+            }
         }
     });
 
     document.getElementById("modalPlanBtn").addEventListener("click", async () => {
         if (!currentModalBookData) return;
+
         const changed = await toggleSaved("planToRead", currentModalBookData);
+
         if (changed) {
             updateModalActionIcons(currentModalBookData);
-            renderGallery(lastRenderedBooks);
+
+            if (currentMode === "personal" && currentListType) {
+                await renderUserList(currentListType);
+            } else {
+                renderGallery(lastRenderedBooks);
+            }
         }
     });
 
