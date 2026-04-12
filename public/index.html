@@ -179,14 +179,37 @@
         }
 
         .icon-btn img {
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
             display: block;
             object-fit: contain;
         }
 
         .icon-btn.active {
             transform: scale(1.08);
+        }
+
+        .title-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            gap: 6px;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .title-row .fav-btn {
+            flex: 0 0 auto;
+            margin-top: 2px;
+        }
+
+        .title-row h3 {
+            margin: 0;
+            flex: 1;
+            text-align: left;
+            height: auto;
+            overflow: visible;
+            line-height: 1.3;
         }
 
        
@@ -455,16 +478,20 @@
 
             card.innerHTML = `
                 <div class="book-actions">
-                    <button class="icon-btn fav-btn ${favActive ? "active" : ""}" title="Favourite">
-                        <img src="${favActive ? "HeartFilled.jpg" : "HeartOutline.jpg"}" alt="Favourite">
-                    </button>
                     <button class="icon-btn plan-btn ${planActive ? "active" : ""}" title="Plan to Read">
                         <img src="${planActive ? "BookMarkFilled.jpg" : "BookMarkOutline.png"}" alt="Plan to Read">
                     </button>
                 </div>
 
                 <img src="${coverUrl}" alt="${bookData.title}">
-                <h3>${bookData.title}</h3>
+
+                <div class="title-row">
+                    <button class="icon-btn fav-btn ${favActive ? "active" : ""}" title="Favourite">
+                        <img src="${favActive ? "HeartFilled.jpg" : "HeartOutline.jpg"}" alt="Favourite">
+                    </button>
+                    <h3>${bookData.title}</h3>
+                </div>
+
                 <small>${bookData.author}</small>
             `;
 
