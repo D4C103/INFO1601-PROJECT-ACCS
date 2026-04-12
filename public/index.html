@@ -251,11 +251,30 @@
         width: 100%;
         margin-bottom: 15px;
     }
+    nav {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 10px 20px;
+        background-color: var(--primary);
+        color: white;
+       margin-bottom: 50px;
+    }
+    nav h1 {
+        margin-left: 20%;
+        font-size: 35px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
 
     </style>
   </head>
 <body>
-  <nav>   <button id="nav-login-btn">Login</button></nav>
+  <nav>   <button id="nav-login-btn">Login</button>
+<button id="nav-favs-btn">View Favorites</button>
+<button id="nav-plan-btn">View Plan to Read</button>
+ <h1>LUME</h1>
+</nav>
   <div id="auth-modal-overlay" style="display: none;">
     <div class="modal-box">
         <div id="login-form-container">
@@ -279,7 +298,7 @@
 
 <div class="container">
     <div class="search-section">
-    <h1>LUME</h1>
+   
     <div class="search-controls">
         <input type="text" id="searchInput" placeholder="Search by title...">
         <select id="genreFilter">
@@ -501,7 +520,9 @@
 
     function renderGallery(books) {
         const gallery = document.getElementById('gallery');
-        gallery.innerHTML = "";
+       if (currentMode !== "personal") 
+            gallery.innerHTML = "";
+    
 
         if (!books || books.length === 0) {
             gallery.innerHTML = "<p>No books found.</p>";
@@ -509,7 +530,7 @@
         }
 
         books.forEach(book => {
-            const bookData = normalizeBook(book);
+            const bookData =book.workKey ? book : normalizeBook(book);
             const coverUrl = bookData.coverId
                 ? `https://covers.openlibrary.org/b/id/${bookData.coverId}-M.jpg`
                 : 'https://via.placeholder.com/200x300?text=No+Cover';
@@ -735,6 +756,68 @@
         fetchBooks(currentQuery, currentPage, currentGenre);
     });
 
+  
+  async function renderUserList(type) {
+    const user = auth.currentUser;
+    if (!user) {
+        alert("Please log in to view your lists.");
+        openModal();
+        return;
+    }
+
+    const gallery = document.getElementById('gallery');
+    const title = document.getElementById('resultsTitle');
+    const pagination = document.querySelector('.pagination');
+    const searchSection = document.querySelector('.search-section');
+
+    gallery.innerHTML = "<p>Loading your list...</p>";
+    currentMode = "personal"; // Custom mode to handle UI changes
+
+    // Hide search and pagination for a "clean" list view
+    pagination.style.display = "none";
+    searchSection.style.display = "none";
+    title.innerText = type === "favourites" ? "My Favorites" : "My Plan to Read List";
+
+    try {
+        const collectionName = type === "favourites" ? "favourites" : "planToRead";
+        const snap = await getDocs(collection(db, "users", user.uid, collectionName));
+        
+        const books = [];
+        snap.forEach(docSnap => books.push(docSnap.data()));
+
+        if (books.length === 0) {
+            gallery.innerHTML = `<p>Your ${type} list is empty.</p>
+                                 <button class="back-btn" onclick="resetToSearch()">Go Back to Search</button>`;
+        } else {
+            // Add a back button at the top of the gallery
+            gallery.innerHTML = `<button class="back-btn" onclick="resetToSearch()">← Back to Search</button><div></div>`;
+            renderGallery(books);
+        }
+    } catch (e) {
+        console.error(e);
+        gallery.innerHTML = "<p>Error loading your list.</p>";
+    }
+}
+
+// --- 2. The Reset Function ---
+window.resetToSearch = () => {
+    const pagination = document.querySelector('.pagination');
+    const searchSection = document.querySelector('.search-section');
+    
+    pagination.style.display = "flex";
+    searchSection.style.display = "block";
+    
+    // Refresh trending/search
+    fetchBooks(currentQuery, currentPage, currentGenre);
+};
+
+// --- 3. Event Listeners for Nav Buttons ---
+document.getElementById('nav-favs-btn').onclick = () => renderUserList('favourites');
+document.getElementById('nav-plan-btn').onclick = () => renderUserList('planToRead');
+
+  
+  
+  
     function buildSearchQuery(query, genre) {
         const parts = [];
 
