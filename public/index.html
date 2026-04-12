@@ -20,15 +20,17 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background:
-                linear-gradient(rgba(245, 239, 228, 0.94), rgba(245, 239, 228, 0.97)),
-                radial-gradient(circle at top, rgba(201, 163, 74, 0.12), transparent 35%),
-                linear-gradient(135deg, #e6dccb 0%, #f7f1e6 48%, #e8ddca 100%);
-            color: var(--ink);
             margin: 0;
             padding: 20px;
             min-height: 100vh;
-            position: relative;
+            background:
+                linear-gradient(rgba(28, 18, 12, 0.45), rgba(28, 18, 12, 0.58)),
+                url("./MainBackgroundImg.png");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: #f8f4ee;
         }
 
         body::before {
@@ -68,12 +70,12 @@
         .search-section {
             text-align: center;
             margin-bottom: 40px;
-            background: linear-gradient(180deg, rgba(255, 251, 242, 0.90), rgba(246, 236, 219, 0.82));
-            border: 1px solid rgba(122, 86, 55, 0.14);
-            border-radius: 26px;
-            padding: 28px 24px;
-            box-shadow: var(--shadow-warm);
-            backdrop-filter: blur(6px);
+            background: rgba(255, 250, 241, 0.78);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(121, 88, 56, 0.14);
+            border-radius: 24px;
+            padding: 26px 22px;
+            box-shadow: 0 14px 30px rgba(0,0,0,0.14);
         }
 
         input[type="text"] {
@@ -450,17 +452,16 @@
         #pageIndicator { font-weight: bold; }
         
         .modal-box {
-            background: linear-gradient(180deg, #fffdf8 0%, #f3e8d8 100%) !important;
+            background-color: rgba(255, 250, 241, 0.95) !important;
+            backdrop-filter: blur(10px);
             color: #333 !important;
             padding: 40px;
             border-radius: 20px;
             width: 100%;
-            max-width: 420px;
-            box-shadow: 0 24px 50px rgba(40, 24, 15, 0.24);
-            border: 1px solid rgba(121, 88, 56, 0.16);
+            max-width: 400px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+            border: 1px solid rgba(121, 88, 56, 0.14);
             text-align: center;
-            position: relative;
-            overflow: hidden;
         }
 
         .modal-box::before {
@@ -492,14 +493,15 @@
         nav {
             display: flex;
             align-items: center;
-            gap: 16px;
-            padding: 14px 20px;
-            background: linear-gradient(135deg, #3a2418 0%, #5b3a28 100%);
-            color: white;
+            gap: 20px;
+            padding: 10px 20px;
             margin-bottom: 50px;
-            border-radius: 20px;
-            border: 1px solid rgba(201, 163, 74, 0.18);
-            box-shadow: 0 14px 30px rgba(40, 24, 15, 0.22);
+            background: rgba(47, 36, 28, 0.82);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 240, 214, 0.12);
+            border-radius: 18px;
+            color: white;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.22);
         }
 
         nav h1 {
@@ -527,16 +529,16 @@
         }
 
         .book-modal {
-            background: linear-gradient(180deg, #fffdf8 0%, #f3e7d5 100%);
+            background: rgba(255, 250, 241, 0.94);
+            backdrop-filter: blur(10px);
             width: 100%;
             max-width: 1000px;
             max-height: 90vh;
             overflow-y: auto;
             border-radius: 20px;
             padding: 30px;
-            border: 1px solid rgba(120, 88, 58, 0.16);
-            box-shadow: 0 24px 50px rgba(44, 28, 18, 0.22);
-            position: relative;
+            box-shadow: 0 24px 50px rgba(0,0,0,0.28);
+            border: 1px solid rgba(121, 88, 56, 0.14);
         }
 
         .book-modal::before {
@@ -1277,7 +1279,7 @@
         modal.style.display = 'flex';
         modal.style.position = 'fixed';
         modal.style.inset = '0';
-        modal.style.backgroundColor = 'rgba(28, 18, 12, 0.58)';
+        modal.style.backgroundColor = 'rgba(20, 12, 8, 0.58)';
         modal.style.zIndex = '10000';
         modal.style.justifyContent = 'center';
         modal.style.alignItems = 'center';
