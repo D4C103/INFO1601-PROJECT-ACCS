@@ -267,6 +267,88 @@
         letter-spacing: 0.5px;
     }
 
+    .book-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 20000;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+    }
+
+    .book-modal-overlay.active {
+        display: flex;
+    }
+
+    .book-modal {
+        background: white;
+        width: 100%;
+        max-width: 1000px;
+        max-height: 90vh;
+        overflow-y: auto;
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+
+    .book-modal-close {
+        background-color: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 25px;
+        padding: 12px 20px;
+        cursor: pointer;
+        margin-bottom: 25px;
+    }
+
+    .book-modal-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 30px;
+        align-items: start;
+    }
+
+    .book-modal-layout img {
+        width: 100%;
+        border-radius: 12px;
+        object-fit: cover;
+    }
+
+    .book-modal-meta p {
+        line-height: 1.6;
+        color: #444;
+    }
+
+    .book-modal-title-bar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .book-modal-title-bar h1 {
+        margin: 0;
+        flex: 1;
+        color: var(--primary);
+        line-height: 1.2;
+    }
+
+    .book-modal-actions {
+        margin: 12px 0 18px 0;
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+        .book-modal-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
     </style>
   </head>
 <body>
@@ -328,17 +410,51 @@
 
     </div>
 </div>
-<script>
-//   if ('serviceWorker' in navigator) {
-//     window.addEventListener('load', () => {
-//       navigator.serviceWorker.register('./sw.js')
-//         .then(reg => console.log('Service Worker registered!', reg))
-//         .catch(err => console.error('Registration failed:', err));
-//     });
-//   }
-</script>
+
+<div id="book-modal-overlay" class="book-modal-overlay">
+    <div class="book-modal">
+        <button id="book-modal-close" class="book-modal-close">← Close</button>
+
+        <div class="book-modal-layout">
+            <img id="modalBookCover" src="" alt="Book Cover">
+
+            <div class="book-modal-meta">
+                <div class="book-modal-title-bar">
+                    <h1 id="modalBookTitle">Loading...</h1>
+                    <button id="modalFavBtn" class="icon-btn" title="Favourite">
+                        <img id="modalFavIcon" src="HeartOutline.jpg" alt="Favourite">
+                    </button>
+                </div>
+
+                <p><strong>Author:</strong> <span id="modalBookAuthor">Loading...</span></p>
+
+                <p><strong>Description:</strong></p>
+                <p id="modalBookDescription">Loading...</p>
+
+                <div class="book-modal-actions">
+                    <button id="modalPlanBtn" class="icon-btn" title="Plan to Read">
+                        <img id="modalPlanIcon" src="BookMarkOutline.png" alt="Plan to Read">
+                    </button>
+                </div>
+
+                <p><strong>Subjects:</strong> <span id="modalBookSubjects">Loading...</span></p>
+            </div>
+        </div>
+    </div>
+</div>
 
 </body>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('Service Worker registered!', reg))
+        .catch(err => console.error('Registration failed:', err));
+    });
+  }
+</script>
+
 <script type="module">
     import firebaseConfig  from "./firebaseConfig.js";
     
@@ -376,6 +492,9 @@
     let currentController = null;
     let latestRequestId = 0;
     let currentMode = "trending";
+    let currentListType = null;
+    let currentModalBookData = null;
+    let lastRenderedBooks = [];
     const limit = 12; 
 
     async function fetchBooks(query, page, genre = "") {
@@ -425,6 +544,7 @@
                 totalResults = data.work_count || books.length;
             }
 
+            lastRenderedBooks = books;
             renderGallery(books);
             updatePaginationUI(totalResults);
             updateResultsTitle();
@@ -561,7 +681,7 @@
             `;
 
             card.addEventListener("click", () => {
-                openBookDetails(bookData);
+                openBookModal(bookData);
             });
 
             const favBtn = card.querySelector(".fav-btn");
@@ -581,20 +701,6 @@
 
             gallery.appendChild(card);
         });
-    }
-
-    function openBookDetails(bookData) {
-        const state = {
-            page: currentPage,
-            query: currentQuery,
-            genre: currentGenre,
-            mode: currentMode
-        };
-
-        sessionStorage.setItem("lumeReturnState", JSON.stringify(state));
-        sessionStorage.setItem("lumeSelectedBook", JSON.stringify(bookData));
-
-        window.location.href = `/details.html?workKey=${encodeURIComponent(bookData.workKey)}`;
     }
 
     function updateResultsTitle() {
@@ -672,23 +778,10 @@
 
     window.changePage = changePage; 
     
-    window.onload = () => {
-        const savedState = JSON.parse(sessionStorage.getItem("lumeReturnState") || "null");
-
-        if (savedState) {
-            currentPage = savedState.page || 1;
-            currentQuery = savedState.query || "";
-            currentGenre = savedState.genre || "";
-            currentMode = savedState.mode || "trending";
-
-            document.getElementById("searchInput").value = currentQuery;
-            document.getElementById("genreFilter").value = currentGenre;
-        } else {
-            currentPage = 1;
-            currentQuery = document.getElementById('searchInput').value.trim();
-            currentGenre = document.getElementById('genreFilter').value;
-        }
-
+    window.onload = async () => {
+        currentPage = 1;
+        currentQuery = document.getElementById("searchInput").value.trim();
+        currentGenre = document.getElementById("genreFilter").value;
         fetchBooks(currentQuery, currentPage, currentGenre);
     };
 
@@ -767,69 +860,127 @@
         }
 
         await loadUserLists();
-        fetchBooks(currentQuery, currentPage, currentGenre);
     });
 
   
-  async function renderUserList(type) {
-    const user = auth.currentUser;
-    if (!user) {
-        alert("Please log in to view your lists.");
-        openModal();
-        return;
-    }
-
-    const gallery = document.getElementById('gallery');
-    const title = document.getElementById('resultsTitle');
-    const pagination = document.querySelector('.pagination');
-    const searchSection = document.querySelector('.search-section');
-
-    gallery.innerHTML = "<p>Loading your list...</p>";
-    currentMode = "personal"; // Custom mode to handle UI changes
-
-    // Hide search and pagination for a "clean" list view
-    pagination.style.display = "none";
-    searchSection.style.display = "none";
-    title.innerText = type === "favourites" ? "My Favorites" : "My Plan to Read List";
-
-    try {
-        const collectionName = type === "favourites" ? "favourites" : "planToRead";
-        const snap = await getDocs(collection(db, "users", user.uid, collectionName));
-        
-        const books = [];
-        snap.forEach(docSnap => books.push(docSnap.data()));
-
-        if (books.length === 0) {
-            gallery.innerHTML = `<p>Your ${type} list is empty.</p>
-                                 <button class="back-btn" onclick="resetToSearch()">Go Back to Search</button>`;
-        } else {
-            // Add a back button at the top of the gallery
-            gallery.innerHTML = `<button class="back-btn" onclick="resetToSearch()">← Back to Search</button><div></div>`;
-            renderGallery(books);
+    async function renderUserList(type) {
+        currentListType = type;
+        const user = auth.currentUser;
+        if (!user) {
+            alert("Please log in to view your lists.");
+            openModal();
+            return;
         }
-    } catch (e) {
-        console.error(e);
-        gallery.innerHTML = "<p>Error loading your list.</p>";
+
+        const gallery = document.getElementById('gallery');
+        const title = document.getElementById('resultsTitle');
+        const pagination = document.querySelector('.pagination');
+        const searchSection = document.querySelector('.search-section');
+
+        gallery.innerHTML = "<p>Loading your list...</p>";
+        currentMode = "personal"; // Custom mode to handle UI changes
+
+        // Hide search and pagination for a "clean" list view
+        pagination.style.display = "none";
+        searchSection.style.display = "none";
+        title.innerText = type === "favourites" ? "My Favorites" : "My Plan to Read List";
+
+        try {
+            const collectionName = type === "favourites" ? "favourites" : "planToRead";
+            const snap = await getDocs(collection(db, "users", user.uid, collectionName));
+            
+            const books = [];
+            snap.forEach(docSnap => books.push(docSnap.data()));
+
+            if (books.length === 0) {
+                gallery.innerHTML = `<p>Your ${type} list is empty.</p>
+                                    <button class="back-btn" onclick="resetToSearch()">Go Back to Search</button>`;
+            } else {
+                // Add a back button at the top of the gallery
+                gallery.innerHTML = `<button class="back-btn" onclick="resetToSearch()">← Back to Search</button><div></div>`;
+                lastRenderedBooks = books;
+                renderGallery(books);
+            }
+        } catch (e) {
+            console.error(e);
+            gallery.innerHTML = "<p>Error loading your list.</p>";
+        }
     }
-}
 
-// --- 2. The Reset Function ---
-window.resetToSearch = () => {
-    const pagination = document.querySelector('.pagination');
-    const searchSection = document.querySelector('.search-section');
-    
-    pagination.style.display = "flex";
-    searchSection.style.display = "block";
-    
-    // Refresh trending/search
-    fetchBooks(currentQuery, currentPage, currentGenre);
-};
+    // --- 2. The Reset Function ---
+    window.resetToSearch = () => {
+        const pagination = document.querySelector('.pagination');
+        const searchSection = document.querySelector('.search-section');
+        
+        currentListType = null;
+        pagination.style.display = "flex";
+        searchSection.style.display = "block";
+        
+        // Refresh trending/search
+        fetchBooks(currentQuery, currentPage, currentGenre);
+    };
 
-// --- 3. Event Listeners for Nav Buttons ---
-document.getElementById('nav-favs-btn').onclick = () => renderUserList('favourites');
-document.getElementById('nav-plan-btn').onclick = () => renderUserList('planToRead');
+    // --- 3. Event Listeners for Nav Buttons ---
+    document.getElementById('nav-favs-btn').onclick = () => renderUserList('favourites');
+    document.getElementById('nav-plan-btn').onclick = () => renderUserList('planToRead');
 
-  
+    function updateModalActionIcons(bookData) {
+        const favActive = isSaved("favourites", bookData.workKey);
+        const planActive = isSaved("planToRead", bookData.workKey);
+
+        document.getElementById("modalFavIcon").src = favActive ? "HeartFilled.jpg" : "HeartOutline.jpg";
+        document.getElementById("modalPlanIcon").src = planActive ? "BookMarkFilled.jpg" : "BookMarkOutline.png";
+
+        document.getElementById("modalFavBtn").classList.toggle("active", favActive);
+        document.getElementById("modalPlanBtn").classList.toggle("active", planActive);
+    }
+
+    async function openBookModal(bookData) {
+        const overlay = document.getElementById("book-modal-overlay");
+
+        currentModalBookData = { ...bookData };
+
+        document.getElementById("modalBookCover").src = bookData.coverId
+            ? `https://covers.openlibrary.org/b/id/${bookData.coverId}-L.jpg`
+            : "https://via.placeholder.com/300x450?text=No+Cover";
+
+        document.getElementById("modalBookTitle").innerText = bookData.title || "Untitled";
+        document.getElementById("modalBookAuthor").innerText = bookData.author || "Unknown Author";
+        document.getElementById("modalBookDescription").innerText = "Loading...";
+        document.getElementById("modalBookSubjects").innerText = "Loading...";
+
+        updateModalActionIcons(currentModalBookData);
+        overlay.classList.add("active");
+
+        try {
+            const response = await fetch(`https://openlibrary.org${bookData.workKey}.json`);
+            const data = await response.json();
+
+            let description = "No description available.";
+            if (typeof data.description === "string") {
+                description = data.description;
+            } else if (data.description && data.description.value) {
+                description = data.description.value;
+            }
+
+            document.getElementById("modalBookTitle").innerText = data.title || bookData.title || "Untitled";
+            document.getElementById("modalBookDescription").innerText = description;
+
+            if (data.subjects && data.subjects.length) {
+                document.getElementById("modalBookSubjects").innerText = data.subjects.slice(0, 10).join(", ");
+            } else {
+                document.getElementById("modalBookSubjects").innerText = "No subjects available.";
+            }
+        } catch (error) {
+            document.getElementById("modalBookDescription").innerText = "Error loading book details.";
+            document.getElementById("modalBookSubjects").innerText = "Please try again.";
+        }
+    }
+
+    function closeBookModal() {
+        document.getElementById("book-modal-overlay").classList.remove("active");
+        currentModalBookData = null;
+    }
   
   
     function buildSearchQuery(query, genre) {
@@ -853,8 +1004,38 @@ document.getElementById('nav-plan-btn').onclick = () => renderUserList('planToRe
         return parts.join(" AND ");
     }
 
+    document.getElementById("book-modal-overlay").addEventListener("click", (event) => {
+        if (event.target.id === "book-modal-overlay") {
+            closeBookModal();
+        }
+    });
+
+    document.getElementById("modalFavBtn").addEventListener("click", async () => {
+        if (!currentModalBookData) return;
+        const changed = await toggleSaved("favourites", currentModalBookData);
+        if (changed) {
+            updateModalActionIcons(currentModalBookData);
+            renderGallery(lastRenderedBooks);
+        }
+    });
+
+    document.getElementById("modalPlanBtn").addEventListener("click", async () => {
+        if (!currentModalBookData) return;
+        const changed = await toggleSaved("planToRead", currentModalBookData);
+        if (changed) {
+            updateModalActionIcons(currentModalBookData);
+            renderGallery(lastRenderedBooks);
+        }
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeBookModal();
+        }
+    });
 
     document.getElementById('close-modal-btn').onclick = closeModal;
+    document.getElementById("book-modal-close").addEventListener("click", closeBookModal);
 
 
 </script>
