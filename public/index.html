@@ -151,6 +151,69 @@
             overflow: hidden;
         }
 
+        .book-card {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .book-actions {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            gap: 8px;
+            z-index: 2;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 0;
+            cursor: pointer;
+            box-shadow: none;
+            border-radius: 0;
+        }
+
+        .icon-btn:hover {
+            transform: none;
+            opacity: 1;
+        }
+
+        .icon-btn img {
+            width: 22px;
+            height: 22px;
+            display: block;
+            object-fit: contain;
+        }
+
+        .icon-btn.active {
+            transform: scale(1.08);
+        }
+
+        .title-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            gap: 6px;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .title-row .fav-btn {
+            flex: 0 0 auto;
+            margin-top: 2px;
+        }
+
+        .title-row h3 {
+            margin: 0;
+            flex: 1;
+            text-align: left;
+            height: auto;
+            overflow: visible;
+            line-height: 1.3;
+        }
+
        
         .pagination {
             display: flex;
@@ -357,6 +420,55 @@
         }
     }
 
+    function getUserKey() {
+        return auth.currentUser ? auth.currentUser.uid : "guest";
+    }
+
+    function getStorageKey(type) {
+        return `${type}_${getUserKey()}`;
+    }
+
+    function getSavedList(type) {
+        const raw = localStorage.getItem(getStorageKey(type));
+        return raw ? JSON.parse(raw) : [];
+    }
+
+    function saveList(type, list) {
+        localStorage.setItem(getStorageKey(type), JSON.stringify(list));
+    }
+
+    function isSaved(type, workKey) {
+        return getSavedList(type).some(book => book.workKey === workKey);
+    }
+
+    function toggleSaved(type, bookData) {
+        let list = getSavedList(type);
+        const exists = list.some(book => book.workKey === bookData.workKey);
+
+        if (exists) {
+            list = list.filter(book => book.workKey !== bookData.workKey);
+        } else {
+            list.push(bookData);
+        }
+
+        saveList(type, list);
+    }
+
+    function normalizeBook(book) {
+        const coverId = book.cover_i || book.cover_id || null;
+        const author =
+            book.author_name?.[0] ||
+            book.authors?.[0]?.name ||
+            "Unknown Author";
+
+        return {
+            workKey: book.key,
+            title: book.title || "Untitled",
+            author: author,
+            coverId: coverId
+        };
+    }
+
     function renderGallery(books) {
         const gallery = document.getElementById('gallery');
         gallery.innerHTML = "";
@@ -367,25 +479,71 @@
         }
 
         books.forEach(book => {
-            const coverId = book.cover_i || book.cover_id;
-            const coverUrl = coverId
-                ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
+            const bookData = normalizeBook(book);
+            const coverUrl = bookData.coverId
+                ? `https://covers.openlibrary.org/b/id/${bookData.coverId}-M.jpg`
                 : 'https://via.placeholder.com/200x300?text=No+Cover';
 
-            const author =
-                book.author_name?.[0] ||
-                book.authors?.[0]?.name ||
-                'Unknown Author';
+            const favActive = isSaved("favourites", bookData.workKey);
+            const planActive = isSaved("planToRead", bookData.workKey);
 
             const card = document.createElement('div');
             card.className = 'book-card';
+
             card.innerHTML = `
-                <img src="${coverUrl}" alt="${book.title || "Untitled"}">
-                <h3>${book.title || "Untitled"}</h3>
-                <small>${author}</small>
+                <div class="book-actions">
+                    <button class="icon-btn plan-btn ${planActive ? "active" : ""}" title="Plan to Read">
+                        <img src="${planActive ? "BookMarkFilled.jpg" : "BookMarkOutline.png"}" alt="Plan to Read">
+                    </button>
+                </div>
+
+                <img src="${coverUrl}" alt="${bookData.title}">
+
+                <div class="title-row">
+                    <button class="icon-btn fav-btn ${favActive ? "active" : ""}" title="Favourite">
+                        <img src="${favActive ? "HeartFilled.jpg" : "HeartOutline.jpg"}" alt="Favourite">
+                    </button>
+                    <h3>${bookData.title}</h3>
+                </div>
+
+                <small>${bookData.author}</small>
             `;
+
+            card.addEventListener("click", () => {
+                openBookDetails(bookData);
+            });
+
+            const favBtn = card.querySelector(".fav-btn");
+            const planBtn = card.querySelector(".plan-btn");
+
+            favBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                toggleSaved("favourites", bookData);
+                renderGallery(books);
+            });
+
+            planBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                toggleSaved("planToRead", bookData);
+                renderGallery(books);
+            });
+
             gallery.appendChild(card);
         });
+    }
+
+    function openBookDetails(bookData) {
+        const state = {
+            page: currentPage,
+            query: currentQuery,
+            genre: currentGenre,
+            mode: currentMode
+        };
+
+        sessionStorage.setItem("lumeReturnState", JSON.stringify(state));
+        sessionStorage.setItem("lumeSelectedBook", JSON.stringify(bookData));
+
+        window.location.href = `../details.html?workKey=${encodeURIComponent(bookData.workKey)}`;
     }
 
     function updateResultsTitle() {
